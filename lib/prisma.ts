@@ -1,6 +1,4 @@
 import { PrismaClient } from '@prisma/client'
-import fs from 'fs'
-import path from 'path'
 
 function getDatabaseUrl(): string {
   if (process.env.DATABASE_URL && !process.env.DATABASE_URL.startsWith('file:')) {
@@ -9,27 +7,34 @@ function getDatabaseUrl(): string {
 
   // On Vercel (read-only file system), copy SQLite file to writable /tmp
   if (process.env.VERCEL) {
-    const tmpDbPath = '/tmp/dev.db'
-    if (!fs.existsSync(tmpDbPath)) {
-      const candidates = [
-        path.join(process.cwd(), 'prisma', 'dev.db'),
-        path.join(process.cwd(), 'dev.db'),
-        path.resolve('./prisma/dev.db'),
-        path.resolve('./dev.db'),
-      ]
-      for (const src of candidates) {
-        if (fs.existsSync(src)) {
-          try {
-            fs.copyFileSync(src, tmpDbPath)
-            console.log(`Copied SQLite DB to ${tmpDbPath}`)
-            break
-          } catch (e) {
-            console.error('Failed to copy SQLite to /tmp:', e)
+    try {
+      /* eslint-disable @typescript-eslint/no-require-imports */
+      const fs = require('fs')
+      const path = require('path')
+      const tmpDbPath = '/tmp/dev.db'
+      if (!fs.existsSync(tmpDbPath)) {
+        const candidates = [
+          path.join(process.cwd(), 'prisma', 'dev.db'),
+          path.join(process.cwd(), 'dev.db'),
+          path.resolve('./prisma/dev.db'),
+          path.resolve('./dev.db'),
+        ]
+        for (const src of candidates) {
+          if (fs.existsSync(src)) {
+            try {
+              fs.copyFileSync(src, tmpDbPath)
+              console.log(`Copied SQLite DB to ${tmpDbPath}`)
+              break
+            } catch (e) {
+              console.error('Failed copying SQLite db:', e)
+            }
           }
         }
       }
+      return `file:${tmpDbPath}`
+    } catch {
+      return process.env.DATABASE_URL || 'file:./dev.db'
     }
-    return `file:${tmpDbPath}`
   }
 
   return process.env.DATABASE_URL || 'file:./dev.db'
